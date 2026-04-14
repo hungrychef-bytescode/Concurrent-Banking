@@ -8,6 +8,11 @@ CLIParse parse_cli(int count, char *cmdarg[]) {
 
     cli_input.tick = 100;
 
+    if (count < 4) {
+        printf("USE: ./bankdb --accounts= --trace= --deadlock= --tick-ms --verbose");
+        exit (1);
+    }
+
     //handle edge cases and argcount check
 
     for (int i = 1; i < count; i++) {

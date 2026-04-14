@@ -3,12 +3,6 @@
 
 int main(int argc, char *argv[]) {
 
-    //move this to cli parser func
-    if (argc < 4) {
-        printf("USE: ./bankdb --accounts= --trace= --deadlock= --tick-ms --verbose");
-        return 1;
-    }
-
     printf("argc: %d\n", argc);
 
     for (int i = 0; i < argc; i++) {
