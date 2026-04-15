@@ -1,9 +1,10 @@
 # variables
+
 CC = gcc
-CFLAGS = -Wall
+CFLAGS = -Wall -Iinclude
 
 TARGET = bankdb
-SOURCES = src/main.c
+SOURCES = src/main.c src/cli_parser.c
 OBJECTS =  $(SOURCES:.c=.o)
 
 
