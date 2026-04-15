@@ -7,13 +7,18 @@ A multi-threaded banking system built in C using POSIX threads (pthreads) that p
 
 ## Group Members
 
-| Name | Role |
-|---|---|
-| Angel May B. Janiola | CLI & Input Parsing, Buffer Pool, Metrics, Shared Headers |
-| Myra S. Verde | Bank Operations, Transaction Execution, Timer Thread, Lock Manager |
+Angel May B. Janiola
+Myra S. Verde
 
 ---
 
+## Task Checklist
+
+    ☑️ main cli entry (Myra)
+    ☑️ CLI input parsing (Myra)
+    ☑️ accounts file (initial balance) parsing (Myra)
+
+---
 ## Compilation & Usage
 
 ### Requirements
