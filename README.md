@@ -7,13 +7,15 @@ A multi-threaded banking system built in C using POSIX threads (pthreads) that p
 
 ## Group Members
 
-Angel May B. Janiola
-Myra S. Verde
+- Angel May B. Janiola
+- Myra S. Verde
 
 ---
 
 ## Task Checklist
 
+    ☑️ initial ReadMe (Angel)
+    ☑️ makefile (Myra)
     ☑️ main cli entry (Myra)
     ☑️ CLI input parsing (Myra)
     ☑️ accounts file (initial balance) parsing (Myra)
@@ -155,23 +157,17 @@ T5 5 BALANCE  10
 ```
 bankdb/
 ├── include/
-│   ├── bank.h            # Bank and account structures
-│   ├── transaction.h     # Transaction and operation types
+│   ├── cli_parser.h      # CLI input parser header
+│   ├── accounts_parser.h # Accounts file parser header
 │   ├── timer.h           # Timer thread and clock functions
 │   ├── lock_mgr.h        # Lock ordering (deadlock prevention)
 │   ├── buffer_pool.h     # Buffer pool with semaphores
 │   └── metrics.h         # Statistics collection
 ├── src/
-│   ├── main.c            # CLI parsing, initialization       [Angel]
-│   ├── utils.c           # Parsing, error handling           [Angel]
-│   ├── buffer_pool.c     # Bounded buffer implementation     [Angel]
-│   ├── metrics.c         # Metrics calculation and output    [Angel]
-│   ├── bank.c            # Account operations                [Myra]
-│   ├── transaction.c     # Transaction execution thread      [Myra]
-│   ├── timer.c           # Timer thread implementation       [Myra]
-│   └── lock_mgr.c        # Deadlock prevention               [Myra]
+│   ├── main.c            # CLI input, initialization
+│   ├── cli_parser.c      # CLI parser
+│   ├── accounts_parser.c #accounts file parser       
 ├── tests/
-│   ├── accounts.txt      # Initial account balances
 │   ├── trace_simple.txt  # Test 1: No conflicts
 │   ├── trace_readers.txt # Test 2: Concurrent readers
 │   ├── trace_deadlock.txt# Test 3: Deadlock scenario
@@ -179,6 +175,7 @@ bankdb/
 │   └── trace_buffer.txt  # Test 5: Buffer pool saturation
 ├── docs/
 │   └── design.md         # Design justification and benchmarks
+├── accounts.txt      # Initial account balances
 ├── Makefile
 └── README.md
 ```
@@ -189,9 +186,6 @@ bankdb/
 
 | Task | Owner | Week |
 |---|---|---|
-| Shared headers (`bank.h`, `transaction.h`, etc.) | Both | 1 |
-| Makefile & Build System | Both | 1 |
-| CLI & Input Parsing (`main.c`, `utils.c`) | Angel | 2 |
 | Buffer Pool with Semaphores (`buffer_pool.c`) | Angel | 2–3 |
 | Metrics & Reporting (`metrics.c`) | Angel | 3 |
 | Bank Account Operations (`bank.c`) | Myra | 2 |
