@@ -25,19 +25,19 @@ typedef enum {
 } TxStatus;
 
 typedef struct {
-    int tx_id;
+    char tx_id[32];
     Operation ops[MAX_OP_PER_TX];    // Max 256 operations per transaction
     int num_ops;
     int start_tick;       // When transaction should start
     // pthread_t thread;
     
     // Timing (measured in ticks)
-    int actual_start;
-    int actual_end;
-    int wait_ticks;
+    // int actual_start;
+    // int actual_end;
+    // int wait_ticks;
     
-    // Status
-    TxStatus status;
+    // // Status
+    // TxStatus status;
 } Transaction;
 
 int parse_transactions(const char *filename, Transaction *transactions, int max_transactions);
