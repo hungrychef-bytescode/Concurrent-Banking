@@ -1,7 +1,7 @@
 # variables
 
 CC = gcc
-CFLAGS = -Wall -Iinclude -Wextra
+CFLAGS = -Iinclude -Wall -pthread
 
 TARGET = bankdb
 SOURCES = src/main.c src/cli_parser.c src/accounts_parser.c src/transactions_parser.c
