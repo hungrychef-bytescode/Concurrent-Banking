@@ -4,7 +4,7 @@ CC = gcc
 CFLAGS = -Wall -Iinclude -Wextra
 
 TARGET = bankdb
-SOURCES = src/main.c src/cli_parser.c src/accounts_parser.c
+SOURCES = src/main.c src/cli_parser.c src/accounts_parser.c src/transactions_parser.c
 OBJECTS =  $(SOURCES:.c=.o)
 
 
