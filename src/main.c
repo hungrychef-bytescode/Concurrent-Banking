@@ -20,15 +20,15 @@ int main(int argc, char *argv[]) {
     printf("tick: %d\n", cli.tick);
     printf("verbose: %d\n", cli.verbose);
 
-    Account accounts[MAX_ACCOUNTS];
+    Bank bank;
 
-    int count = parse_accounts(cli.accounts, accounts, MAX_ACCOUNTS);
+    int count = parse_accounts(cli.accounts, &bank);
     printf("count: %d\n", count);
     printf("Initial Account Balance\n");
 
-    for (int i = 0; i < count; i++) {
-        printf("account id: %d\n", accounts[i].account_id);
-        printf("balance in centavos: %d\n", accounts[i].balance_centavos);
+    for (int i = 0; i < bank.num_accounts; i++) {
+        printf("account id: %d\n", bank.accounts[i].account_id);
+        printf("balance in centavos: %d\n", bank.accounts[i].balance_centavos);
     }
 
     Transaction transactions[MAX_TRANSACTIONS];
