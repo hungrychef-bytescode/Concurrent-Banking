@@ -19,6 +19,8 @@ A multi-threaded banking system built in C using POSIX threads (pthreads) that p
     ☑️ main cli entry (Myra)
     ☑️ CLI input parsing (Myra)
     ☑️ accounts file (initial balance) parsing (Myra)
+    ☑️ transactions trace file parsing (Myra)
+
 
 ---
 ## Compilation & Usage
@@ -186,12 +188,6 @@ bankdb/
 
 | Task | Owner | Week |
 |---|---|---|
-| Buffer Pool with Semaphores (`buffer_pool.c`) | Angel | 2–3 |
-| Metrics & Reporting (`metrics.c`) | Angel | 3 |
-| Bank Account Operations (`bank.c`) | Myra | 2 |
-| Transaction Execution Thread (`transaction.c`) | Myra | 2 |
-| Timer Thread (`timer.c`) | Myra | 2 |
-| Lock Manager — Deadlock Prevention (`lock_mgr.c`) | Myra | 2–3 |
 | Test cases & trace files | Both | 3 |
 | `docs/design.md` | Both | 3 |
 | ThreadSanitizer testing & debugging | Both | 4 |
