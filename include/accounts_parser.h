@@ -8,5 +8,10 @@ typedef struct {
     int balance_centavos;
 } Account;
 
-int parse_accounts(const char *file, Account accounts[], int max_accounts);
+typedef struct P{
+    Account accounts[MAX_ACCOUNTS];
+    int num_accounts;
+} Bank;
+
+int parse_accounts(const char *file, Bank *bank);
 #endif

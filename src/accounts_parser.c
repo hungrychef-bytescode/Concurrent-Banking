@@ -3,27 +3,30 @@
 
 #include "accounts_parser.h"
 
-int parse_accounts(const char *filename, Account accounts[], int max_accounts) {
+int parse_accounts(const char *filename, Bank *bank) {
     FILE *file = fopen(filename, "r");
 
-    //handle edge cases
+    if (file == NULL) {
+        fprintf(stderr, "error opening accounts file: %s\n", filename);
+        return -1;
+    }
 
-    int count = 0;
+    bank->num_accounts = 0;
     char line[128];
 
     while (fgets(line, sizeof(line), file)) {
         if (line[0] == '#' || line[0] == '\n') continue;
 
-        if (count > max_accounts) {
-         fprintf(stderr, "warning");
-         break;
+        if (bank->num_accounts >= MAX_ACCOUNTS) {
+            fprintf(stderr, "max accounts reached: %s\n", filename);
+            break;
         }
 
         Account acc = {0};
 
         if (sscanf(line, "%d %d", &acc.account_id, &acc.balance_centavos) == 2) {
-            accounts[count] = acc;
-            count++;
+            bank->accounts[bank->num_accounts] = acc;
+            bank->num_accounts++;
         }
 
     }
@@ -31,6 +34,5 @@ int parse_accounts(const char *filename, Account accounts[], int max_accounts) {
     fclose(file);
 
 
-    return count;
-
+    return bank->num_accounts;
 }
