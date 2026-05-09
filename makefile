@@ -1,4 +1,3 @@
-# Variables
 CC      = gcc
 CFLAGS  = -Wall -Wextra -Iinclude -pthread
 
@@ -13,7 +12,6 @@ SOURCES = src/main.c \
           src/transaction.c
 OBJECTS = $(SOURCES:.c=.o)
 
-# Default build
 all: $(TARGET)
 
 $(TARGET): $(OBJECTS)
@@ -22,26 +20,24 @@ $(TARGET): $(OBJECTS)
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# ThreadSanitizer build (required by lab)
 debug: CFLAGS += -g -fsanitize=thread
 debug: $(TARGET)
 
-# Run all 5 test cases
 test: $(TARGET)
-	@echo "=== Test 1: Simple (no conflicts) ==="
-	./$(TARGET) --accounts=accounts.txt --trace=tests/trace_simple.txt --deadlock=prevention
+	@echo "=== Test 1: No Conflicts ==="
+	./$(TARGET) --accounts=tests/accounts_simple.txt --trace=tests/trace_simple.txt --deadlock=prevention
 	@echo ""
 	@echo "=== Test 2: Concurrent Readers ==="
-	./$(TARGET) --accounts=accounts.txt --trace=tests/trace_readers.txt --deadlock=prevention
+	./$(TARGET) --accounts=tests/accounts_main.txt --trace=tests/trace_readers.txt --deadlock=prevention
 	@echo ""
 	@echo "=== Test 3: Deadlock Scenario ==="
-	./$(TARGET) --accounts=accounts.txt --trace=tests/trace_deadlock.txt --deadlock=prevention
+	./$(TARGET) --accounts=tests/accounts_main.txt --trace=tests/trace_deadlock.txt --deadlock=prevention
 	@echo ""
 	@echo "=== Test 4: Insufficient Funds ==="
-	./$(TARGET) --accounts=accounts.txt --trace=tests/trace_abort.txt --deadlock=prevention
+	./$(TARGET) --accounts=tests/accounts_abort.txt --trace=tests/trace_abort.txt --deadlock=prevention
 	@echo ""
 	@echo "=== Test 5: Buffer Pool Saturation ==="
-	./$(TARGET) --accounts=accounts.txt --trace=tests/trace_buffer.txt --deadlock=prevention
+	./$(TARGET) --accounts=tests/accounts_buffer.txt --trace=tests/trace_buffer.txt --deadlock=prevention
 
 clean:
 	rm -f $(OBJECTS) $(TARGET)
