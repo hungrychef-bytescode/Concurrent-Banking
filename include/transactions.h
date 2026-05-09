@@ -1,7 +1,9 @@
 #ifndef TRANSACTIONS_H
 #define TRANSACTIONS_H
 
-#define MAX_OP_PER_TX 256
+#include <pthread.h>
+
+#define MAX_OP_PER_TX    256
 #define MAX_TRANSACTIONS 100
 
 typedef enum {
@@ -13,9 +15,9 @@ typedef enum {
 
 typedef struct {
     OpType type;
-    int account_id;          // Primary account
-    int amount_centavos;     // Amount in centavos
-    int target_account;      // For TRANSFER only
+    int account_id;       // Primary account
+    int amount_centavos;  // Amount in centavos
+    int target_account;   // For TRANSFER only
 } Operation;
 
 typedef enum {
@@ -25,19 +27,19 @@ typedef enum {
 } TxStatus;
 
 typedef struct {
-    char tx_id[32];
-    Operation ops[MAX_OP_PER_TX];    // Max 256 operations per transaction
-    int num_ops;
-    int start_tick;       // When transaction should start
-    // pthread_t thread;
-    
+    char       tx_id[32];
+    Operation  ops[MAX_OP_PER_TX];
+    int        num_ops;
+    int        start_tick;    // When transaction should start (from trace file)
+    pthread_t  thread;        // The pthread handle
+
     // Timing (measured in ticks)
-    // int actual_start;
-    // int actual_end;
-    // int wait_ticks;
-    
-    // // Status
-    // TxStatus status;
+    int        actual_start;
+    int        actual_end;
+    int        wait_ticks;
+
+    // Status
+    TxStatus   status;
 } Transaction;
 
 int parse_transactions(const char *filename, Transaction *transactions, int max_transactions);
