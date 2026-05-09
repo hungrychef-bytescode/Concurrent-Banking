@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "accounts_parser.h"
 
 int parse_accounts(const char *filename, Bank *bank) {
