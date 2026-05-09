@@ -13,7 +13,7 @@ OpType parse_operation_type(const char *operation) {
     } else if (strcmp(operation, "BALANCE") == 0) {
         return OP_BALANCE;
     } else {
-        fprintf(stderr, "invalid operation type: %s\n", operation);
+        fprintf(stderr, "invalid operation type: '%s'\n", operation);
         exit(1);
     }
 }
@@ -31,14 +31,24 @@ int parse_transactions(const char *filename, Transaction *transactions, int max_
 
     while (fgets(line, sizeof(line), file) && count < max_transactions) {
 
-        if (line[0] == '#' || line[0] == '\n') continue;
+        // Strip Windows \r\n or Unix \n line endings
+        line[strcspn(line, "\r\n")] = '\0';
 
-        Transaction *transaction =&transactions[count];
-        Operation operation;
-        
+        // Skip blank lines and comments
+        if (line[0] == '#' || line[0] == '\0') continue;
+
+        Transaction *transaction = &transactions[count];
+        Operation operation = {0};
         char operation_str[32];
 
-        int parsed = sscanf(line, "%s %d %s %d", transaction->tx_id, &transaction->start_tick, operation_str, &operation.account_id);
+        if (sscanf(line, "%31s %d %31s %d",
+                   transaction->tx_id,
+                   &transaction->start_tick,
+                   operation_str,
+                   &operation.account_id) != 4) {
+            fprintf(stderr, "invalid transaction line: %s\n", line);
+            continue;
+        }
 
         operation.type = parse_operation_type(operation_str);
         transaction->num_ops = 0;
@@ -52,18 +62,28 @@ int parse_transactions(const char *filename, Transaction *transactions, int max_
                 }
                 operation.target_account = -1;
                 break;
+
             case OP_TRANSFER:
-                if (sscanf(line, "%*s %*d %*s %*d %d %d", &operation.amount_centavos, &operation.target_account) != 2) {
+                // Format: TxID StartTick TRANSFER from_id target_id amount
+                if (sscanf(line, "%*s %*d %*s %*d %d %d",
+                           &operation.target_account,
+                           &operation.amount_centavos) != 2) {
                     fprintf(stderr, "invalid transaction format: %s\n", line);
                     continue;
                 }
                 break;
+
             case OP_BALANCE:
                 operation.amount_centavos = 0;
                 operation.target_account = -1;
                 break;
         }
+
         transaction->ops[transaction->num_ops++] = operation;
+        transaction->actual_start = -1;
+        transaction->actual_end   = -1;
+        transaction->wait_ticks   = 0;
+        transaction->status       = TX_RUNNING;
         count++;
     }
 
