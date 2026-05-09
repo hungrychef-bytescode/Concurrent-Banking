@@ -1,47 +1,99 @@
-#ifndef TRANSACTIONS_H
-#define TRANSACTIONS_H
+#include <stdio.h>
+#include "transaction.h"
+#include "bank.h"
+#include "timer.h"
+#include "buffer_pool.h"
 
-#include <pthread.h>
+void *execute_transaction(void *arg) {
+    Transaction *tx = (Transaction *)arg;
 
-#define MAX_OP_PER_TX    256
-#define MAX_TRANSACTIONS 100
+    wait_until_tick(tx->start_tick);
+    tx->actual_start = global_tick;
 
-typedef enum {
-    OP_DEPOSIT,   // Add money to account
-    OP_WITHDRAW,  // Remove money from account
-    OP_TRANSFER,  // Move money between two accounts
-    OP_BALANCE,   // Read account balance
-} OpType;
+    for (int i = 0; i < tx->num_ops; i++) {
+        load_account(tx->ops[i].account_id);
+        if (tx->ops[i].type == OP_TRANSFER) {
+            load_account(tx->ops[i].target_account);
+        }
+    }
 
-typedef struct {
-    OpType type;
-    int account_id;       // Primary account
-    int amount_centavos;  // Amount in centavos
-    int target_account;   // For TRANSFER only
-} Operation;
+    for (int i = 0; i < tx->num_ops; i++) {
+        Operation *op = &tx->ops[i];
+        int tick_before = global_tick;
 
-typedef enum {
-    TX_RUNNING,
-    TX_COMMITTED,
-    TX_ABORTED
-} TxStatus;
+        switch (op->type) {
 
-typedef struct {
-    char       tx_id[32];
-    Operation  ops[MAX_OP_PER_TX];
-    int        num_ops;
-    int        start_tick;    // When transaction should start (from trace file)
-    pthread_t  thread;        // The pthread handle
+            case OP_DEPOSIT:
+                deposit(op->account_id, op->amount_centavos, &tx->wait_ticks);
+                printf("  %s [tick %d]: DEPOSIT  account %d amount %d.%02d PHP\n",
+                       tx->tx_id, global_tick,
+                       op->account_id,
+                       op->amount_centavos / 100, op->amount_centavos % 100);
+                break;
 
-    // Timing (measured in ticks)
-    int        actual_start;
-    int        actual_end;
-    int        wait_ticks;
+            case OP_WITHDRAW:
+                if (!withdraw(op->account_id, op->amount_centavos, &tx->wait_ticks)) {
+                    printf("  %s [tick %d]: WITHDRAW account %d ABORTED (insufficient funds)\n",
+                           tx->tx_id, global_tick, op->account_id);
+                    tx->status     = TX_ABORTED;
+                    tx->actual_end = global_tick;
+                    for (int j = 0; j < tx->num_ops; j++) {
+                        unload_account(tx->ops[j].account_id);
+                        if (tx->ops[j].type == OP_TRANSFER) {
+                            unload_account(tx->ops[j].target_account);
+                        }
+                    }
+                    return NULL;
+                }
+                printf("  %s [tick %d]: WITHDRAW account %d amount %d.%02d PHP\n",
+                       tx->tx_id, global_tick,
+                       op->account_id,
+                       op->amount_centavos / 100, op->amount_centavos % 100);
+                break;
 
-    // Status
-    TxStatus   status;
-} Transaction;
+            case OP_TRANSFER:
+                if (!transfer(op->account_id, op->target_account,
+                              op->amount_centavos, &tx->wait_ticks)) {
+                    printf("  %s [tick %d]: TRANSFER account %d -> %d ABORTED (insufficient funds)\n",
+                           tx->tx_id, global_tick,
+                           op->account_id, op->target_account);
+                    tx->status     = TX_ABORTED;
+                    tx->actual_end = global_tick;
+                    for (int j = 0; j < tx->num_ops; j++) {
+                        unload_account(tx->ops[j].account_id);
+                        if (tx->ops[j].type == OP_TRANSFER) {
+                            unload_account(tx->ops[j].target_account);
+                        }
+                    }
+                    return NULL;
+                }
+                printf("  %s [tick %d]: TRANSFER account %d -> %d amount %d.%02d PHP\n",
+                       tx->tx_id, global_tick,
+                       op->account_id, op->target_account,
+                       op->amount_centavos / 100, op->amount_centavos % 100);
+                break;
 
-int parse_transactions(const char *filename, Transaction *transactions, int max_transactions);
+            case OP_BALANCE: {
+                int balance = get_balance(op->account_id);
+                printf("  %s [tick %d]: BALANCE  account %d = %d.%02d PHP\n",
+                       tx->tx_id, global_tick,
+                       op->account_id,
+                       balance / 100, balance % 100);
+                break;
+            }
+        }
 
-#endif
+        tx->wait_ticks += (global_tick - tick_before);
+    }
+
+    for (int i = 0; i < tx->num_ops; i++) {
+        unload_account(tx->ops[i].account_id);
+        if (tx->ops[i].type == OP_TRANSFER) {
+            unload_account(tx->ops[i].target_account);
+        }
+    }
+
+    tx->actual_end = global_tick;
+    tx->status     = TX_COMMITTED;
+    return NULL;
+}
