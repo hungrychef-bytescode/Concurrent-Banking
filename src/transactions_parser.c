@@ -12,12 +12,9 @@ OpType parse_operation_type(const char *operation) {
     exit(1);
 }
 
-// Find existing transaction by tx_id, or return -1
 static int find_transaction(Transaction *transactions, int count, const char *tx_id) {
     for (int i = 0; i < count; i++) {
-        if (strcmp(transactions[i].tx_id, tx_id) == 0) {
-            return i;
-        }
+        if (strcmp(transactions[i].tx_id, tx_id) == 0) return i;
     }
     return -1;
 }
@@ -37,52 +34,44 @@ int parse_transactions(const char *filename, Transaction *transactions, int max_
         if (line[0] == '#' || line[0] == '\0') continue;
 
         char tx_id[32];
-        int  start_tick;
+        int  op_tick;
         char operation_str[32];
         int  account_id;
 
-        if (sscanf(line, "%31s %d %31s %d",
-                   tx_id, &start_tick, operation_str, &account_id) != 4) {
+        if (sscanf(line, "%31s %d %31s %d", tx_id, &op_tick, operation_str, &account_id) != 4) {
             fprintf(stderr, "invalid line: %s\n", line);
             continue;
         }
 
-        // Find existing transaction with same tx_id, or create new one
         int idx = find_transaction(transactions, count, tx_id);
         if (idx == -1) {
-            if (count >= max_transactions) {
-                fprintf(stderr, "max transactions reached\n");
-                break;
-            }
+            if (count >= max_transactions) { fprintf(stderr, "max transactions reached\n"); break; }
             idx = count++;
             strncpy(transactions[idx].tx_id, tx_id, 31);
-            transactions[idx].start_tick  = start_tick;
-            transactions[idx].num_ops     = 0;
+            transactions[idx].start_tick   = op_tick;
+            transactions[idx].num_ops      = 0;
             transactions[idx].actual_start = -1;
             transactions[idx].actual_end   = -1;
             transactions[idx].wait_ticks   = 0;
             transactions[idx].status       = TX_RUNNING;
         }
 
-        // Build the operation
         Operation op = {0};
         op.type       = parse_operation_type(operation_str);
         op.account_id = account_id;
+        op.start_tick = op_tick;
 
         switch (op.type) {
             case OP_DEPOSIT:
             case OP_WITHDRAW:
                 if (sscanf(line, "%*s %*d %*s %*d %d", &op.amount_centavos) != 1) {
-                    fprintf(stderr, "invalid format: %s\n", line);
-                    continue;
+                    fprintf(stderr, "invalid format: %s\n", line); continue;
                 }
                 op.target_account = -1;
                 break;
             case OP_TRANSFER:
-                if (sscanf(line, "%*s %*d %*s %*d %d %d",
-                           &op.target_account, &op.amount_centavos) != 2) {
-                    fprintf(stderr, "invalid format: %s\n", line);
-                    continue;
+                if (sscanf(line, "%*s %*d %*s %*d %d %d", &op.target_account, &op.amount_centavos) != 2) {
+                    fprintf(stderr, "invalid format: %s\n", line); continue;
                 }
                 break;
             case OP_BALANCE:

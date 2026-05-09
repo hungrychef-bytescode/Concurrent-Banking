@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "transaction.h"
 #include "bank.h"
 #include "timer.h"
@@ -11,15 +12,14 @@ void *execute_transaction(void *arg) {
     tx->actual_start = global_tick;
 
     for (int i = 0; i < tx->num_ops; i++) {
-        load_account(tx->ops[i].account_id);
-        if (tx->ops[i].type == OP_TRANSFER) {
-            load_account(tx->ops[i].target_account);
-        }
-    }
-
-    for (int i = 0; i < tx->num_ops; i++) {
         Operation *op = &tx->ops[i];
-        int tick_before = global_tick;
+
+        wait_until_tick(op->start_tick);
+
+        load_account(op->account_id);
+        if (op->type == OP_TRANSFER) {
+            load_account(op->target_account);
+        }
 
         switch (op->type) {
 
@@ -35,14 +35,9 @@ void *execute_transaction(void *arg) {
                 if (!withdraw(op->account_id, op->amount_centavos, &tx->wait_ticks)) {
                     printf("  %s [tick %d]: WITHDRAW account %d ABORTED (insufficient funds)\n",
                            tx->tx_id, global_tick, op->account_id);
+                    unload_account(op->account_id);
                     tx->status     = TX_ABORTED;
                     tx->actual_end = global_tick;
-                    for (int j = 0; j < tx->num_ops; j++) {
-                        unload_account(tx->ops[j].account_id);
-                        if (tx->ops[j].type == OP_TRANSFER) {
-                            unload_account(tx->ops[j].target_account);
-                        }
-                    }
                     return NULL;
                 }
                 printf("  %s [tick %d]: WITHDRAW account %d amount %d.%02d PHP\n",
@@ -57,14 +52,10 @@ void *execute_transaction(void *arg) {
                     printf("  %s [tick %d]: TRANSFER account %d -> %d ABORTED (insufficient funds)\n",
                            tx->tx_id, global_tick,
                            op->account_id, op->target_account);
+                    unload_account(op->account_id);
+                    unload_account(op->target_account);
                     tx->status     = TX_ABORTED;
                     tx->actual_end = global_tick;
-                    for (int j = 0; j < tx->num_ops; j++) {
-                        unload_account(tx->ops[j].account_id);
-                        if (tx->ops[j].type == OP_TRANSFER) {
-                            unload_account(tx->ops[j].target_account);
-                        }
-                    }
                     return NULL;
                 }
                 printf("  %s [tick %d]: TRANSFER account %d -> %d amount %d.%02d PHP\n",
@@ -83,13 +74,9 @@ void *execute_transaction(void *arg) {
             }
         }
 
-        tx->wait_ticks += (global_tick - tick_before);
-    }
-
-    for (int i = 0; i < tx->num_ops; i++) {
-        unload_account(tx->ops[i].account_id);
-        if (tx->ops[i].type == OP_TRANSFER) {
-            unload_account(tx->ops[i].target_account);
+        unload_account(op->account_id);
+        if (op->type == OP_TRANSFER) {
+            unload_account(op->target_account);
         }
     }
 

@@ -7,17 +7,18 @@
 #define MAX_TRANSACTIONS 100
 
 typedef enum {
-    OP_DEPOSIT,   // Add money to account
-    OP_WITHDRAW,  // Remove money from account
-    OP_TRANSFER,  // Move money between two accounts
-    OP_BALANCE,   // Read account balance
+    OP_DEPOSIT,
+    OP_WITHDRAW,
+    OP_TRANSFER,
+    OP_BALANCE,
 } OpType;
 
 typedef struct {
     OpType type;
-    int account_id;       // Primary account
-    int amount_centavos;  // Amount in centavos
-    int target_account;   // For TRANSFER only
+    int account_id;
+    int amount_centavos;
+    int target_account;
+    int start_tick;
 } Operation;
 
 typedef enum {
@@ -30,15 +31,11 @@ typedef struct {
     char       tx_id[32];
     Operation  ops[MAX_OP_PER_TX];
     int        num_ops;
-    int        start_tick;    // When transaction should start (from trace file)
-    pthread_t  thread;        // The pthread handle
-
-    // Timing (measured in ticks)
+    int        start_tick;
+    pthread_t  thread;
     int        actual_start;
     int        actual_end;
     int        wait_ticks;
-
-    // Status
     TxStatus   status;
 } Transaction;
 
