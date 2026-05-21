@@ -14,20 +14,25 @@ A multi-threaded banking system built in C using POSIX threads (pthreads) that p
 
 ## Task Checklist
 
+### Initial Implementation
     ☑️ CLI input parsing (Myra)
     ☑️ accounts file (initial balance) parsing (Myra)
     ☑️ transactions trace file parsing (Myra)
     ☑️ timer thread (Angel)
-    ☑️ bank operations: deposit, withdraw, transfer, balance (Angel)
+    ☑️ fix race conditions (Myra)
+    ☑️ lock manager (Myra)
+    ☑️ bank operations: deposit, withdraw, transfer, balance (Both)
     ☑️ deadlock prevention via lock ordering (Angel)
-    ☑️ bounded buffer pool with semaphores (Angel)
-    ☑️ transaction executor thread (Angel)
+    ☑️ bounded buffer pool with semaphores (both)
+    ☑️ transaction executor thread (Both)
     ☑️ metrics & reporting (Angel)
     ☑️ test cases & trace files (Both)
     ☑️ design documentation (Angel)
-    ☑️ README (Angel)
+    ☑️ README (Both)
+    ☑️ verbose deadlock prevention log (myra)
+    ☑️ ThreadSanitizer verification (myra)
 
----
+
 
 ## Compilation & Usage
 
@@ -76,7 +81,7 @@ make clean
 |---|---|---|
 | `--accounts=FILE` | Initial account balances file | required |
 | `--trace=FILE` | Transaction workload trace file | required |
-| `--deadlock=prevention` | Deadlock strategy (prevention only) | required |
+| `--deadlock=prevention` | Deadlock strategy; only prevention is implemented | required |
 | `--tick-ms=N` | Milliseconds per simulation tick | 100 |
 | `--verbose` | Print detailed operation logs | off |
 
@@ -241,6 +246,6 @@ Concurrent-Banking/
 - Maximum of 100 transactions per trace file (`MAX_TRANSACTIONS`)
 - Buffer pool size is fixed at 5 slots (`BUFFER_POOL_SIZE` in `buffer_pool.h`)
 - Amounts are stored and reported in centavos (integer arithmetic); no floating-point rounding issues, but input must be in whole centavos
-- `--verbose` flag is parsed by the CLI but not yet wired into operation logging (all ops print regardless)
+- `--verbose` flag is available for extra start/commit logs
 
 ---
