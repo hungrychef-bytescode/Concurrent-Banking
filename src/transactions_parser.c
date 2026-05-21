@@ -45,15 +45,20 @@ int parse_transactions(const char *filename, Transaction *transactions, int max_
 
         int idx = find_transaction(transactions, count, tx_id);
         if (idx == -1) {
-            if (count >= max_transactions) { fprintf(stderr, "max transactions reached\n"); break; }
+            if (count >= max_transactions) {
+                fprintf(stderr, "max transactions reached\n");
+                break;
+            }
             idx = count++;
-            strncpy(transactions[idx].tx_id, tx_id, 31);
+            snprintf(transactions[idx].tx_id, sizeof(transactions[idx].tx_id), "%s", tx_id);
             transactions[idx].start_tick   = op_tick;
             transactions[idx].num_ops      = 0;
             transactions[idx].actual_start = -1;
             transactions[idx].actual_end   = -1;
             transactions[idx].wait_ticks   = 0;
             transactions[idx].status       = TX_RUNNING;
+        } else if (op_tick < transactions[idx].start_tick) {
+            transactions[idx].start_tick = op_tick;
         }
 
         Operation op = {0};
@@ -78,6 +83,11 @@ int parse_transactions(const char *filename, Transaction *transactions, int max_
                 op.amount_centavos = 0;
                 op.target_account  = -1;
                 break;
+        }
+
+        if (transactions[idx].num_ops >= MAX_OP_PER_TX) {
+            fprintf(stderr, "transaction %s has too many operations; ignoring\n", tx_id);
+            continue;
         }
 
         transactions[idx].ops[transactions[idx].num_ops++] = op;

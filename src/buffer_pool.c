@@ -1,23 +1,39 @@
+#include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include "buffer_pool.h"
 #include "bank.h"
 
 // Global buffer pool instance
 BufferPool buffer_pool;
 
+static void check_errno(int rv, const char *msg) {
+    if (rv != 0) {
+        perror(msg);
+        exit(EXIT_FAILURE);
+    }
+}
+
+static void safe_sem_wait(sem_t *sem, const char *msg) {
+    while (sem_wait(sem) != 0) {
+        if (errno == EINTR) continue;
+        perror(msg);
+        exit(EXIT_FAILURE);
+    }
+}
+
 void init_buffer_pool(void) {
     for (int i = 0; i < BUFFER_POOL_SIZE; i++) {
         buffer_pool.slots[i].in_use     = false;
         buffer_pool.slots[i].account_id = -1;
         buffer_pool.slots[i].data       = NULL;
+        buffer_pool.slots[i].ref_count  = 0;
     }
 
     // empty_slots starts at BUFFER_POOL_SIZE (all slots are empty)
-    sem_init(&buffer_pool.empty_slots, 0, BUFFER_POOL_SIZE);
-    // full_slots starts at 0 (no slots are filled)
-    sem_init(&buffer_pool.full_slots,  0, 0);
-
-    pthread_mutex_init(&buffer_pool.pool_lock, NULL);
+    check_errno(sem_init(&buffer_pool.empty_slots, 0, BUFFER_POOL_SIZE), "sem_init(empty_slots)");
+    check_errno(pthread_mutex_init(&buffer_pool.pool_lock, NULL), "pthread_mutex_init(pool_lock)");
 
     buffer_pool.total_loads        = 0;
     buffer_pool.total_unloads      = 0;
@@ -28,7 +44,6 @@ void init_buffer_pool(void) {
 
 void destroy_buffer_pool(void) {
     sem_destroy(&buffer_pool.empty_slots);
-    sem_destroy(&buffer_pool.full_slots);
     pthread_mutex_destroy(&buffer_pool.pool_lock);
 }
 
@@ -36,37 +51,54 @@ void destroy_buffer_pool(void) {
 // Blocks if all slots are full (sem_wait on empty_slots)
 void load_account(int account_id) {
     // Check if already loaded — avoid double-loading
-    pthread_mutex_lock(&buffer_pool.pool_lock);
+    check_errno(pthread_mutex_lock(&buffer_pool.pool_lock), "pthread_mutex_lock(pool_lock)");
     for (int i = 0; i < BUFFER_POOL_SIZE; i++) {
         if (buffer_pool.slots[i].in_use &&
             buffer_pool.slots[i].account_id == account_id) {
-            pthread_mutex_unlock(&buffer_pool.pool_lock);
-            return;  // Already in pool
+            buffer_pool.slots[i].ref_count++;
+            check_errno(pthread_mutex_unlock(&buffer_pool.pool_lock), "pthread_mutex_unlock(pool_lock)");
+            return;  // Already loaded, just increment reference count
         }
     }
-    pthread_mutex_unlock(&buffer_pool.pool_lock);
+    check_errno(pthread_mutex_unlock(&buffer_pool.pool_lock), "pthread_mutex_unlock(pool_lock)");
 
-    // Wait for an empty slot (blocks if pool is full)
-    int val;
-    sem_getvalue(&buffer_pool.empty_slots, &val);
-    if (val == 0) buffer_pool.blocked_operations++;
+    // Try to acquire an empty slot without blocking first.
+    if (sem_trywait(&buffer_pool.empty_slots) != 0) {
+        if (errno != EAGAIN) {
+            perror("sem_trywait(empty_slots)");
+            exit(EXIT_FAILURE);
+        }
+        check_errno(pthread_mutex_lock(&buffer_pool.pool_lock), "pthread_mutex_lock(pool_lock)");
+        buffer_pool.blocked_operations++;
+        check_errno(pthread_mutex_unlock(&buffer_pool.pool_lock), "pthread_mutex_unlock(pool_lock)");
+        safe_sem_wait(&buffer_pool.empty_slots, "sem_wait(empty_slots)");
+    }
 
-    sem_wait(&buffer_pool.empty_slots);
+    check_errno(pthread_mutex_lock(&buffer_pool.pool_lock), "pthread_mutex_lock(pool_lock)");
 
-    pthread_mutex_lock(&buffer_pool.pool_lock);
+    // If the account was loaded while we were waiting, reuse the slot.
+    for (int i = 0; i < BUFFER_POOL_SIZE; i++) {
+        if (buffer_pool.slots[i].in_use &&
+            buffer_pool.slots[i].account_id == account_id) {
+            buffer_pool.slots[i].ref_count++;
+            check_errno(pthread_mutex_unlock(&buffer_pool.pool_lock), "pthread_mutex_unlock(pool_lock)");
+            check_errno(sem_post(&buffer_pool.empty_slots), "sem_post(empty_slots)");
+            return;
+        }
+    }
 
     // Find the empty slot and fill it
     for (int i = 0; i < BUFFER_POOL_SIZE; i++) {
         if (!buffer_pool.slots[i].in_use) {
-            // Find the account in the bank
-            for (int j = 0; j < bank.num_accounts; j++) {
-                if (bank.accounts[j].account_id == account_id) {
-                    buffer_pool.slots[i].account_id = account_id;
-                    buffer_pool.slots[i].data       = &bank.accounts[j];
-                    buffer_pool.slots[i].in_use     = true;
-                    break;
-                }
+            Account *acct = bank_get_account(account_id);
+            if (acct == NULL) {
+                fprintf(stderr, "load_account: account %d not found\n", account_id);
+                exit(EXIT_FAILURE);
             }
+            buffer_pool.slots[i].account_id = account_id;
+            buffer_pool.slots[i].data       = acct;
+            buffer_pool.slots[i].in_use     = true;
+            buffer_pool.slots[i].ref_count  = 1;
             break;
         }
     }
@@ -77,36 +109,44 @@ void load_account(int account_id) {
         buffer_pool.peak_usage = buffer_pool.current_usage;
     }
 
-    pthread_mutex_unlock(&buffer_pool.pool_lock);
+    check_errno(pthread_mutex_unlock(&buffer_pool.pool_lock), "pthread_mutex_unlock(pool_lock)");
 
-    // Signal that a full slot is now available
-    sem_post(&buffer_pool.full_slots);
+    // Simulate buffer load latency so concurrent buffer pool contention is observable.
+    usleep(100000);
+    return;
 }
 
 // Consumer: unload an account from the buffer pool
-// Blocks if the account isn't loaded yet (sem_wait on full_slots)
 void unload_account(int account_id) {
-    sem_wait(&buffer_pool.full_slots);
+    check_errno(pthread_mutex_lock(&buffer_pool.pool_lock), "pthread_mutex_lock(pool_lock)");
 
-    pthread_mutex_lock(&buffer_pool.pool_lock);
-
+    bool found = false;
     for (int i = 0; i < BUFFER_POOL_SIZE; i++) {
         if (buffer_pool.slots[i].in_use &&
             buffer_pool.slots[i].account_id == account_id) {
-            buffer_pool.slots[i].in_use     = false;
-            buffer_pool.slots[i].account_id = -1;
-            buffer_pool.slots[i].data       = NULL;
-            break;
+            found = true;
+            buffer_pool.slots[i].ref_count--;
+            if (buffer_pool.slots[i].ref_count <= 0) {
+                buffer_pool.slots[i].in_use     = false;
+                buffer_pool.slots[i].account_id = -1;
+                buffer_pool.slots[i].data       = NULL;
+                buffer_pool.total_unloads++;
+                buffer_pool.current_usage--;
+
+                check_errno(pthread_mutex_unlock(&buffer_pool.pool_lock), "pthread_mutex_unlock(pool_lock)");
+                check_errno(sem_post(&buffer_pool.empty_slots), "sem_post(empty_slots)");
+                return;
+            }
+
+            check_errno(pthread_mutex_unlock(&buffer_pool.pool_lock), "pthread_mutex_unlock(pool_lock)");
+            return;
         }
     }
 
-    buffer_pool.total_unloads++;
-    buffer_pool.current_usage--;
-
-    pthread_mutex_unlock(&buffer_pool.pool_lock);
-
-    // Signal that an empty slot is now available
-    sem_post(&buffer_pool.empty_slots);
+    check_errno(pthread_mutex_unlock(&buffer_pool.pool_lock), "pthread_mutex_unlock(pool_lock)");
+    if (!found) {
+        fprintf(stderr, "unload_account: account %d not found in buffer pool\n", account_id);
+    }
 }
 
 void print_buffer_pool_stats(void) {
