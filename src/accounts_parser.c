@@ -25,7 +25,6 @@ int parse_accounts(const char *filename, Bank *bank) {
 
         if (line[0] == '#' || line[0] == '\0') continue;
 
-        Account acc = {0};
         int account_id;
         int balance_centavos;
 
