@@ -12,12 +12,12 @@ typedef struct {
     int      account_id;
     Account *data;
     bool     in_use;
+    int      ref_count;
 } BufferSlot;
 
 typedef struct {
     BufferSlot      slots[BUFFER_POOL_SIZE];
     sem_t           empty_slots;  // counts available empty slots
-    sem_t           full_slots;   // counts filled slots
     pthread_mutex_t pool_lock;    // protects slots array
 
     // Statistics
