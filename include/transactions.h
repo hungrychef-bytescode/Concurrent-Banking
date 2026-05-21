@@ -2,6 +2,7 @@
 #define TRANSACTIONS_H
 
 #include <pthread.h>
+#include <stdatomic.h>
 
 #define MAX_OP_PER_TX    256
 #define MAX_TRANSACTIONS 100
@@ -36,8 +37,17 @@ typedef struct {
     int        actual_start;
     int        actual_end;
     int        wait_ticks;
-    TxStatus   status;
+    atomic_int status;
 } Transaction;
+
+extern int verbose_flag;
+
+void init_transaction_barrier(int total_transactions);
+void release_transaction_barrier(void);
+
+// Entry point for each transaction pthread
+// Pass a pointer to a Transaction struct
+void *execute_transaction(void *arg);
 
 int parse_transactions(const char *filename, Transaction *transactions, int max_transactions);
 
